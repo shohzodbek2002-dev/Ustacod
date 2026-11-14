@@ -15,7 +15,7 @@
                  (usta, ofis, guruh): [123456789, -1001234567890]
    Foydalanuvchining o'z ID si Telegram Mini App ichida avtomatik olinadi. */
 window.USTACAD_TG={
- BOT_TOKEN:"9119558756:AAGjxWqyV4hl-oH-x72PMnhr7V3g8N9Au0U",
+ BOT_TOKEN:"",
  UPLOAD_URL:"",
  EXTRA_CHAT_IDS:[],
  AUTO_SEND:true,
@@ -40,7 +40,7 @@ button.pr{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 main{flex:1;display:flex;min-height:0}
 #vp{flex:1;position:relative;min-width:0;background:radial-gradient(ellipse at 50% 35%,rgba(255,255,255,.35),transparent 70%)}
-#vp canvas{display:block;width:100%;height:100%;touch-action:none;outline:0}
+#vp canvas{display:block;width:100%;height:100%;touch-action:none;outline:0;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #views{position:absolute;left:10px;top:10px;display:flex;gap:4px;flex-wrap:wrap;max-width:calc(100% - 20px)}
 #views button{padding:5px 9px;font-size:12px;background:color-mix(in srgb,var(--pn) 88%,transparent);backdrop-filter:blur(8px);box-shadow:var(--sh)}
 #info{position:absolute;left:10px;bottom:10px;background:color-mix(in srgb,var(--pn) 90%,transparent);backdrop-filter:blur(8px);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--mt);box-shadow:var(--sh);font-variant-numeric:tabular-nums}
@@ -100,6 +100,12 @@ aside,#tree{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 @media(pointer:coarse){input,select,textarea{font-size:16px!important}button{min-height:38px}}
 #ux-warn{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:99;background:var(--pn);color:var(--tx);border:1px solid var(--ac);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:13px;display:none}
+#vp{min-height:0;overflow:hidden}
+@media(max-width:800px){
+body.kb header,body.kb #sbar,body.kb #bt{display:none!important}
+body.kb #vp{flex:0 0 84px}
+body.kb aside{flex:1 1 auto;height:auto;min-height:0;border-top:0;padding-bottom:48px}
+}
 </style></head><body data-t="panel">
 <div id="ux-warn" role="alert"></div>
 <script>
@@ -1375,40 +1381,64 @@ new ResizeObserver(size).observe(vp);
 var ray=new THREE.Raycaster(),down=null;
 renderer.domElement.addEventListener("pointerdown",function(e){down={x:e.clientX,y:e.clientY}});
 renderer.domElement.addEventListener("pointerup",function(e){
- if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)return;
+ if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>(e.pointerType==='touch'?12:6))return;
+ if(DR&&DR.mv)return;
  var r=renderer.domElement.getBoundingClientRect();
  ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1),cam);
  var hit=ray.intersectObjects(root.children,true)[0];
  if(!hit){S.sel=null;ui();rebuild();return}
  var o=hit.object;while(o&&o.userData.id==null)o=o.parent;
- S.sel=o?o.userData.id:null;ui();rebuild();
+ var nid=o?o.userData.id:null;
+ if(nid!=null&&nid===S.sel){S.sel=null;ui();rebuild();toast("Tanlov bekor qilindi");return}
+ S.sel=nid;ui();rebuild();
  toast((hit.object.userData.part||"Detal")+" "+(hit.object.userData.dim||"")+" mm — modul: "+(get(S.sel)||{}).name+". Siljitish uchun sudrang.")
 });
 
 /* ---- 3D siljitish ---- */
-function snapX(m,x){var best=x,bd=25;S.mods.forEach(function(o){if(o.id===m.id)return;[o.x+o.w/2+2+m.w/2,o.x-o.w/2-2-m.w/2,o.x,o.x+o.w/2-m.w/2,o.x-o.w/2+m.w/2].forEach(function(c){var d=Math.abs(c-x);if(d<bd){bd=d;best=c}})});return Math.round(best)}
-function snapY(m,y){var best=y,bd=25,cs=[0];S.mods.forEach(function(o){if(o.id!==m.id)cs.push(o.y,o.y+o.h,o.y-m.h)});cs.forEach(function(c){var d=Math.abs(c-y);if(c>=0&&d<bd){bd=d;best=c}});return Math.round(best)}
+function snapX(m,x,th){var best=x,bd=th||25;S.mods.forEach(function(o){if(o.id===m.id)return;[o.x+o.w/2+2+m.w/2,o.x-o.w/2-2-m.w/2,o.x,o.x+o.w/2-m.w/2,o.x-o.w/2+m.w/2].forEach(function(c){var d=Math.abs(c-x);if(d<bd){bd=d;best=c}})});return Math.round(best)}
+function snapY(m,y,th){var best=y,bd=th||25,cs=[0];S.mods.forEach(function(o){if(o.id!==m.id)cs.push(o.y,o.y+o.h,o.y-m.h)});cs.forEach(function(c){var d=Math.abs(c-y);if(c>=0&&d<bd){bd=d;best=c}});return Math.round(best)}
 var DZ=false,DR=null,pl=new THREE.Plane(new THREE.Vector3(0,0,1),0),pt=new THREE.Vector3();
 function ndc(e){var r=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1),cam)}
+function selGroup(){var r=null;root.traverse(function(c){if(!r&&c.userData&&c.userData.id===S.sel)r=c});return r}
+var _bx=new THREE.Box3(),_v3=new THREE.Vector3();
+/* barmoq aniq tegmasa ham (modul chetidan ~16px) tanlangan modulni ushlaydi */
+function nearSel(e){var g=selGroup();if(!g)return null;_bx.setFromObject(g);if(_bx.isEmpty())return null;
+ var r=renderer.domElement.getBoundingClientRect(),x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,i,px,py;
+ for(i=0;i<8;i++){_v3.set(i&1?_bx.max.x:_bx.min.x,i&2?_bx.max.y:_bx.min.y,i&4?_bx.max.z:_bx.min.z).project(cam);if(_v3.z>1)return null;
+  px=(_v3.x+1)/2*r.width+r.left;py=(1-_v3.y)/2*r.height+r.top;x0=Math.min(x0,px);x1=Math.max(x1,px);y0=Math.min(y0,py);y1=Math.max(y1,py)}
+ var pad=16;return(e.clientX>=x0-pad&&e.clientX<=x1+pad&&e.clientY>=y0-pad&&e.clientY<=y1+pad)?g:null}
+var _hapT=0;function hap(){var t=Date.now();if(t-_hapT<90)return;_hapT=t;try{var h=window.Telegram&&Telegram.WebApp&&Telegram.WebApp.HapticFeedback;if(h)h.selectionChanged();else if(navigator.vibrate)navigator.vibrate(8)}catch(x){}}
+function mmpp(){var r=renderer.domElement.getBoundingClientRect();return 2*cam.position.distanceTo(DR.g.position)*Math.tan(cam.fov*Math.PI/360)/Math.max(1,r.height)*1000}
 renderer.domElement.addEventListener('pointerdown',function(e){
+ if(DR)return;
  if(S.sel==null||(e.pointerType==='mouse'&&e.button!==0))return;
- ndc(e);var hit=ray.intersectObjects(root.children,true)[0];if(!hit)return;
- var o=hit.object;while(o&&o.userData.id==null)o=o.parent;
- if(!o||o.userData.id!==S.sel)return;
+ ndc(e);var hit=ray.intersectObjects(root.children,true)[0],o=null;
+ if(hit){o=hit.object;while(o&&o.userData.id==null)o=o.parent;if(!o||o.userData.id!==S.sel)return}
+ else if(e.pointerType!=='mouse')o=nearSel(e);
+ if(!o)return;
  var m=get(S.sel);if(!m)return;if(m.lock){toast('Modul qulflangan 🔒');return}var xz=DZ||ctl.getPolarAngle()<.6;
  if(xz)pl.set(new THREE.Vector3(0,1,0),-m.y/1000);else pl.set(new THREE.Vector3(0,0,1),0);
- if(!ray.ray.intersectPlane(pl,pt))return;ctl.enabled=false;DR={m:m,g:o,sx:pt.x*1000,sy:pt.y*1000,sz:pt.z*1000,ox:m.x,oy:m.y,oz:m.z||0,xz:xz,mv:false}
+ if(!ray.ray.intersectPlane(pl,pt))return;ctl.enabled=false;
+ DR={m:m,g:o,sx:pt.x*1000,sy:pt.y*1000,sz:pt.z*1000,ox:m.x,oy:m.y,oz:m.z||0,xz:xz,mv:false,pid:e.pointerId,cx:e.clientX,cy:e.clientY,go:false,tch:e.pointerType!=='mouse',ls:null,
+  ix:$('[data-k="x"]'),iy:$('[data-k="y"]'),iz:$('[data-k="z"]')}
 },true);
 window.addEventListener('pointermove',function(e){
- if(!DR)return;ndc(e);if(!ray.ray.intersectPlane(pl,pt))return;
+ if(!DR||e.pointerId!==DR.pid)return;
+ /* o'lik zona: bosish/tanlashda modul tasodifan siljimasin */
+ if(!DR.go){if(Math.hypot(e.clientX-DR.cx,e.clientY-DR.cy)<(DR.tch?7:3))return;DR.go=true;
+  ndc(e);if(ray.ray.intersectPlane(pl,pt)){DR.sx=pt.x*1000;DR.sy=pt.y*1000;DR.sz=pt.z*1000}return}
+ ndc(e);if(Math.abs(ray.ray.direction.dot(pl.normal))<.08)return;if(!ray.ray.intersectPlane(pl,pt))return;
  var nx=Math.max(-20000,Math.min(20000,Math.round((DR.ox+pt.x*1000-DR.sx)/10)*10)),ny=Math.max(0,Math.min(2500,Math.round((DR.oy+pt.y*1000-DR.sy)/10)*10));
  var nz=DR.xz?Math.max(-10000,Math.min(10000,Math.round((DR.oz+pt.z*1000-DR.sz)/10)*10)):(DR.m.z||0);if(DR.xz)ny=DR.oy;
- if(S.set.snap!==false&&!DR.xz){nx=snapX(DR.m,nx);ny=snapY(DR.m,ny)}
+ if(S.set.snap!==false&&!DR.xz){
+  var th=DR.tch?Math.max(10,Math.min(45,14*mmpp())):25,rx=nx,ry=ny;/* ekran masshtabiga mos "magnit" kuchi */
+  nx=snapX(DR.m,nx,th);ny=snapY(DR.m,ny,th);
+  if(nx!==rx||ny!==ry){var kk=nx+'|'+ny;if(DR.ls!==kk){DR.ls=kk;hap()}}else DR.ls=null}
  if(nx===DR.m.x&&ny===DR.m.y&&nz===(DR.m.z||0))return;
  DR.m.x=nx;DR.m.y=ny;DR.m.z=nz;DR.mv=true;DR.g.position.set(nx/1000,ny/1000,(DR.m.z||0)/1000);if(dimG)dimG.position.copy(DR.g.position);
- var ix=$('[data-k="x"]'),iy=$('[data-k="y"]');var iz=$('[data-k="z"]');if(ix)ix.value=nx;if(iy)iy.value=ny;if(iz)iz.value=nz
+ if(DR.ix)DR.ix.value=nx;if(DR.iy)DR.iy.value=ny;if(DR.iz)DR.iz.value=nz
 });
-function endDrag(){if(!DR)return;ctl.enabled=true;var d=DR;DR=null;if(d.mv){var gx=d.m.x-d.ox,gy=d.m.y-d.oy,gz=(d.m.z||0)-d.oz;if(d.m.grp)S.mods.forEach(function(q){if(q!==d.m&&q.grp===d.m.grp&&!q.lock){q.x+=gx;q.y=Math.max(0,q.y+gy);q.z=(q.z||0)+gz}});commit();all()}}
+function endDrag(e){if(!DR)return;if(e&&e.pointerId!=null&&e.pointerId!==DR.pid)return;ctl.enabled=true;var d=DR;DR=null;if(d.mv){var gx=d.m.x-d.ox,gy=d.m.y-d.oy,gz=(d.m.z||0)-d.oz;if(d.m.grp)S.mods.forEach(function(q){if(q!==d.m&&q.grp===d.m.grp&&!q.lock){q.x+=gx;q.y=Math.max(0,q.y+gy);q.z=(q.z||0)+gz}});commit();all()}}
 window.addEventListener('pointerup',endDrag);window.addEventListener('pointercancel',endDrag);
 window.addEventListener('keydown',function(e){
  var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA')return;
@@ -3419,4 +3449,15 @@ window.addEventListener('online',function(){say('Internet qayta ulandi')});
 
 </script>
 
+<script>
+/* UstaCAD: klaviatura ochilganda panel ko'rinib turishi uchun */
+(function(){var b=document.body,t=null;
+ function isTxt(e){if(!e||!e.tagName)return false;if(e.tagName==='TEXTAREA')return true;if(e.tagName!=='INPUT')return false;return !/^(checkbox|radio|range|button|submit|color|file|reset)$/i.test(e.type||'text')}
+ function relayout(){setTimeout(function(){try{window.dispatchEvent(new Event('resize'))}catch(e){}},80)}
+ document.addEventListener('focusin',function(e){var el=e.target;if(!isTxt(el)||window.innerWidth>800||!el.closest('aside,#tree'))return;clearTimeout(t);
+  if(!b.classList.contains('kb')){b.classList.add('kb');relayout()}
+  setTimeout(function(){try{el.scrollIntoView({block:'center',behavior:'smooth'})}catch(x){}},320)});
+ document.addEventListener('focusout',function(){clearTimeout(t);t=setTimeout(function(){if(isTxt(document.activeElement))return;if(b.classList.contains('kb')){b.classList.remove('kb');relayout();window.scrollTo(0,0)}},150)});
+})();
+</script>
 </body></html>
